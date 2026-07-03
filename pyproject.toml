@@ -1,0 +1,36 @@
+[project]
+name = "wattelse-rag-bridge"
+version = "0.1.0"
+description = "MCP server exposing RTE WattElse RAG (RAGOrchestrator) API as tools, plus an OpenAI Agents SDK agent that consumes it."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MPL-2.0" }
+dependencies = [
+    "mcp[cli]>=1.6,<2",
+    "httpx>=0.27",
+    "pydantic>=2.6",
+    "pydantic-settings>=2.2",
+    "python-dotenv>=1.0",
+    "openai-agents>=0.0.19",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "respx>=0.21",
+]
+
+[project.scripts]
+wattelse-mcp-server = "wattelse_mcp.server:main"
+wattelse-agent = "wattelse_agent.cli:run"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["wattelse_mcp*", "wattelse_agent*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
