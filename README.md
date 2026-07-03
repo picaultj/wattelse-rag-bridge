@@ -10,35 +10,10 @@ Two pieces:
 - **`wattelse_agent/`** — an [OpenAI Agents SDK](https://github.com/openai/openai-agents-python)
   agent that talks to that MCP server over stdio and answers questions using it.
 
-## Assessment: RAG agent vs. MCP server
-
-The task asked to build "a RAG agent *or* an MCP" for WattElse. These aren't actually competing
-options — an MCP server is an *integration*, an agent is a *consumer* of tools. The real choice is
-where to put the WattElse-specific logic (auth, endpoints, response parsing):
-
-- **Baked into an agent** (e.g. as `@function_tool`s directly in an `openai-agents` `Agent`) is the
-  fastest path to a working demo, but it locks the integration to one framework. Anthropic's
-  Claude Code/Desktop, other agent frameworks, or a teammate's own script can't reuse it.
-- **Exposed as an MCP server** decouples the integration from any single framework. Any MCP host —
-  this repo's `openai-agents` agent, Claude Desktop, Claude Code, a future LangChain/LlamaIndex
-  agent — can mount it and get the same tools for free, and WattElse's auth/session/error-handling
-  logic lives in exactly one place.
-
-So this repo does both, correctly layered: the WattElse-specific code lives entirely in the MCP
-server (`wattelse_mcp`), and `wattelse_agent` is a thin `openai-agents` client that mounts that
-server via `MCPServerStdio` and never talks to WattElse's HTTP API directly. This satisfies "for
-agent use the openai-agents framework, for MCP use the official `mcp` package with FastMCP" as a
-single coherent design rather than two disconnected deliverables.
-
-```
-┌───────────────────────┐        stdio (MCP)        ┌────────────────────┐       HTTPS        ┌───────────────────────┐
-│ wattelse_agent (CLI)   │ ─────────────────────────▶│ wattelse_mcp.server │──────────────────▶│ WattElse RAGOrchestrator│
-│ openai-agents Agent    │◀───────────────────────── │ FastMCP tools       │◀────────────────── │ API (/query-rag, ...)  │
-└───────────────────────┘                            └────────────────────┘                    └───────────────────────┘
-```
-
-`wattelse_mcp/server.py` is a standalone MCP server: any other MCP host can run
-`python -m wattelse_mcp.server` and get the same tools without `wattelse_agent` in the picture.
+All WattElse-specific logic (auth, sessions, document management, querying) lives in `wattelse_mcp`
+and nowhere else, so it can be reused by any MCP host, not just `wattelse_agent`. See
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full design, component breakdown, and
+sequence diagrams.
 
 ## WattElse API surface wrapped
 
