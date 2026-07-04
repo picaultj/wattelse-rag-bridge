@@ -1,5 +1,3 @@
-import os
-
 import pytest
 
 from wattelse_mcp.config import get_settings

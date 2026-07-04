@@ -148,7 +148,9 @@ async def ask(question: str, group_system_prompt: str | None = None) -> dict:
     sessions = await client.list_sessions()
     if settings.default_group_id not in sessions:
         await client.create_session(settings.default_group_id, settings.default_config)
-    return await client.query(settings.default_group_id, question, group_system_prompt=group_system_prompt)
+    return await client.query(
+        settings.default_group_id, question, group_system_prompt=group_system_prompt
+    )
 
 
 def main() -> None:

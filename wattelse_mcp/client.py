@@ -79,7 +79,7 @@ class WattElseClient:
         self._token: str | None = None
         self._token_expiry: float = 0.0
 
-    async def __aenter__(self) -> "WattElseClient":
+    async def __aenter__(self) -> WattElseClient:
         return self
 
     async def __aexit__(self, *exc_info: object) -> None:
@@ -154,9 +154,7 @@ class WattElseClient:
         return response.json()
 
     async def remove_documents(self, group_id: str, filenames: list[str]) -> dict:
-        response = await self._request(
-            "POST", f"{ENDPOINT_REMOVE_DOCS}/{group_id}", json=filenames
-        )
+        response = await self._request("POST", f"{ENDPOINT_REMOVE_DOCS}/{group_id}", json=filenames)
         return response.json()
 
     async def list_documents(self, group_id: str) -> list[str]:
@@ -195,5 +193,6 @@ class WattElseClient:
                 "stream": False,
             },
         )
-        # Same double-JSON-encoding quirk as list_documents (see rag_query.py: `return json.dumps(response)`).
+        # Same double-JSON-encoding quirk as list_documents
+        # (see rag_query.py: `return json.dumps(response)`).
         return json.loads(response.json())

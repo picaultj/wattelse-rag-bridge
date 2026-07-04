@@ -23,9 +23,7 @@ def make_client(**kwargs) -> WattElseClient:
 @respx.mock
 async def test_health_does_not_authenticate():
     token_route = respx.post(f"{BASE_URL}/token")
-    respx.get(f"{BASE_URL}/health").mock(
-        return_value=httpx.Response(200, json={"status": "ok"})
-    )
+    respx.get(f"{BASE_URL}/health").mock(return_value=httpx.Response(200, json={"status": "ok"}))
 
     client = make_client()
     assert await client.health() is True

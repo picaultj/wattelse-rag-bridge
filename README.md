@@ -73,3 +73,12 @@ pytest
 
 Tests mock the WattElse HTTP API with `respx` (`tests/test_client.py`) and mock the client inside
 the MCP tools (`tests/test_server.py`) — no live WattElse deployment or OpenAI key is required.
+
+## CI
+
+Two workflows under `.github/workflows/`:
+
+- **`lint.yml`** — runs `ruff check` and `ruff format --check` on every push and pull request.
+- **`release.yml`** — on merge of a pull request into `main`, bumps `version` in `pyproject.toml`
+  (patch by default; add a `bump:minor` or `bump:major` label to the PR to change that), commits
+  the bump, tags it `vX.Y.Z`, and publishes a GitHub release with auto-generated notes.
