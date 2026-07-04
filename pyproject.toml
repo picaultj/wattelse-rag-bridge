@@ -1,6 +1,6 @@
 [project]
 name = "wattelse-rag-bridge"
-version = "0.1.0"
+version = "0.1.1"
 description = "MCP server exposing RTE WattElse RAG (RAGOrchestrator) API as tools, plus an OpenAI Agents SDK agent that consumes it."
 readme = "README.md"
 requires-python = ">=3.10"
