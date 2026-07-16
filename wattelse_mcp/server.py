@@ -15,10 +15,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import sys
+from loguru import logger
+
 from mcp.server.fastmcp import FastMCP
+import mcp.types as types
 
 from wattelse_mcp.client import WattElseClient
 from wattelse_mcp.config import get_settings
+
+settings = get_settings()
 
 mcp = FastMCP(
     "wattelse-rag",
@@ -28,6 +34,7 @@ mcp = FastMCP(
         "before uploading documents or querying it. For a quick single-collection setup, prefer "
         "the `ask` tool, which uses a pre-configured default group_id and auto-creates its session."
     ),
+    port=settings.mcp_port,
 )
 
 _client: WattElseClient | None = None
@@ -154,7 +161,52 @@ async def ask(question: str, group_system_prompt: str | None = None) -> dict:
 
 
 def main() -> None:
-    mcp.run()
+    # Configure loguru to write to stderr
+    logger.remove()
+    logger.add(sys.stderr, level="INFO")
+
+    # Patch JSONRPCMessage.model_validate_json to handle empty lines gracefully.
+    # The MCP SDK's stdio transport reads line by line and passes them to this method.
+    # Empty lines (e.g. \n) trigger a Pydantic validation error if not handled.
+    original_validate = types.JSONRPCMessage.model_validate_json
+
+    def patched_validate(cls, json_data, *args, **kwargs):
+        if isinstance(json_data, (str, bytes)) and not json_data.strip():
+            # Return a dummy notification that will be ignored by the server.
+            # 'notifications/initialized' is a valid method that's safe to send twice
+            # (though here it's being "received" by the server from the client).
+            return types.JSONRPCMessage(
+                root=types.JSONRPCNotification(
+                    jsonrpc="2.0",
+                    method="notifications/initialized",
+                )
+            )
+        return original_validate(json_data, *args, **kwargs)
+
+    types.JSONRPCMessage.model_validate_json = classmethod(patched_validate)
+
+    # When running as SSE or streamable-http, display the full URL.
+    # We detect transport if it's the first argument or if MCP_TRANSPORT env var is set (FastMCP convention).
+    transport = "streamable-http"
+    if len(sys.argv) > 1 and sys.argv[1] in ["stdio", "sse", "streamable-http"]:
+        transport = sys.argv[1]
+
+    if transport in ["sse", "streamable-http"]:
+        host = mcp.settings.host
+        port = mcp.settings.port
+        if transport == "sse":
+            path = mcp.settings.sse_path
+        else:
+            path = mcp.settings.streamable_http_path
+        
+        # Default mount path is /
+        logger.info(f"URL: http://{host}:{port}{path}")
+
+    logger.info(f"Starting WattElse MCP server on {transport}...")
+    try:
+        mcp.run(transport=transport)
+    except KeyboardInterrupt:
+        pass
 
 
 if __name__ == "__main__":

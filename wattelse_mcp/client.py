@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+from loguru import logger
 
 ENDPOINT_TOKEN = "/token"
 ENDPOINT_HEALTH = "/health"
@@ -112,11 +113,18 @@ class WattElseClient:
     # -- low-level request helper ----------------------------------------------
 
     async def _request(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
+        logger.debug(f"Request: {method} {path}")
         headers = kwargs.pop("headers", None) or {}
         if path not in _UNAUTHENTICATED_ENDPOINTS:
             headers.update(await self._auth_header())
-        response = await self._http.request(method, path, headers=headers, **kwargs)
+        try:
+            response = await self._http.request(method, path, headers=headers, **kwargs)
+        except Exception as e:
+            logger.error(f"Request failed: {method} {path} - {e}")
+            raise
+
         if response.status_code >= 400:
+            logger.warning(f"API error: {method} {path} -> {response.status_code}")
             raise WattElseAPIError(response.status_code, response.text)
         return response
 

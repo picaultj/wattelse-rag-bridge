@@ -12,6 +12,7 @@ dependencies = [
     "pydantic-settings>=2.2",
     "python-dotenv>=1.0",
     "openai-agents>=0.0.19",
+    "loguru>=0.7.3",
 ]
 
 [project.optional-dependencies]

@@ -54,9 +54,17 @@ Required env vars (see `.env.example`): `WATTELSE_BASE_URL`, `WATTELSE_CLIENT_ID
 ## Run
 
 Standalone MCP server (e.g. to wire into Claude Desktop/Code, or `mcp dev` for the inspector):
+The port can be configured via `WATTELSE_MCP_PORT` (defaults to 8000).
 
 ```bash
+# default (streamable-http)
 python -m wattelse_mcp.server
+
+# stdio transport
+python -m wattelse_mcp.server stdio
+
+# SSE transport
+python -m wattelse_mcp.server sse
 ```
 
 Interactive agent (spawns the MCP server itself as a subprocess):
