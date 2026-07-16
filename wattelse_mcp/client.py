@@ -14,6 +14,7 @@ Endpoints and response shapes below mirror wattelse/api/rag_orchestrator/{__init
 
 from __future__ import annotations
 
+import asyncio
 import json
 import time
 from pathlib import Path
@@ -92,18 +93,31 @@ class WattElseClient:
     # -- auth -----------------------------------------------------------------
 
     async def _authenticate(self) -> None:
-        response = await self._http.post(
-            ENDPOINT_TOKEN,
-            data={"username": self._client_id, "password": self._client_secret},
-        )
-        if response.status_code != 200:
-            raise WattElseAuthError(
-                f"Failed to obtain access token: {response.status_code} {response.text}"
-            )
-        payload = response.json()
-        self._token = payload["access_token"]
-        expires_in = payload.get("expires_in", 3600)
-        self._token_expiry = time.monotonic() + expires_in - _TOKEN_REFRESH_LEEWAY_SECONDS
+        # Authentication should also be retried if it fails due to network issues
+        max_retries = 3
+        retry_delay = 1.0
+        for attempt in range(max_retries):
+            try:
+                response = await self._http.post(
+                    ENDPOINT_TOKEN,
+                    data={"username": self._client_id, "password": self._client_secret},
+                )
+                if response.status_code != 200:
+                    raise WattElseAuthError(
+                        f"Failed to obtain access token: {response.status_code} {response.text}"
+                    )
+                payload = response.json()
+                self._token = payload["access_token"]
+                expires_in = payload.get("expires_in", 3600)
+                self._token_expiry = time.monotonic() + expires_in - _TOKEN_REFRESH_LEEWAY_SECONDS
+                return
+            except (httpx.RemoteProtocolError, httpx.ConnectError, httpx.WriteError) as e:
+                if attempt == max_retries - 1:
+                    logger.error(f"Authentication failed after {max_retries} attempts: {e}")
+                    raise
+                logger.warning(f"Authentication attempt {attempt + 1} failed, retrying in {retry_delay}s... ({e})")
+                await asyncio.sleep(retry_delay)
+                retry_delay *= 2
 
     async def _auth_header(self) -> dict[str, str]:
         if self._token is None or time.monotonic() >= self._token_expiry:
@@ -117,11 +131,27 @@ class WattElseClient:
         headers = kwargs.pop("headers", None) or {}
         if path not in _UNAUTHENTICATED_ENDPOINTS:
             headers.update(await self._auth_header())
-        try:
-            response = await self._http.request(method, path, headers=headers, **kwargs)
-        except Exception as e:
-            logger.error(f"Request failed: {method} {path} - {e}")
-            raise
+
+        # Retry logic for transient network issues (like "Server disconnected without sending a response")
+        max_retries = 3
+        retry_delay = 1.0
+        for attempt in range(max_retries):
+            try:
+                response = await self._http.request(method, path, headers=headers, **kwargs)
+                break
+            except (httpx.RemoteProtocolError, httpx.ConnectError, httpx.WriteError) as e:
+                if attempt == max_retries - 1:
+                    logger.error(f"Request failed after {max_retries} attempts: {method} {path} - {e}")
+                    raise
+                logger.warning(
+                    f"Request attempt {attempt + 1} failed, retrying in {retry_delay}s... "
+                    f"({method} {path} - {e})"
+                )
+                await asyncio.sleep(retry_delay)
+                retry_delay *= 2  # Exponential backoff
+            except Exception as e:
+                logger.error(f"Request failed: {method} {path} - {e}")
+                raise
 
         if response.status_code >= 400:
             logger.warning(f"API error: {method} {path} -> {response.status_code}")
