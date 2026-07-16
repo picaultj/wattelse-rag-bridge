@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     default_group_id: str = "default"
     default_config: str = "default_config"
 
+    mcp_port: int = 8000
+
 
 @lru_cache
 def get_settings() -> Settings:
