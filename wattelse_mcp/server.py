@@ -52,7 +52,7 @@ def _get_client() -> WattElseClient:
         _client = WattElseClient(
             base_url=settings.base_url,
             client_id=settings.client_id,
-            client_secret=settings.client_secret,
+            client_secret=settings.client_token,
             verify_ssl=settings.verify_ssl,
             timeout=settings.request_timeout,
         )

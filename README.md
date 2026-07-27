@@ -44,12 +44,17 @@ file for the endpoint-by-endpoint mapping.
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
-cp .env.example .env   # fill in WATTELSE_CLIENT_SECRET, OPENAI_API_KEY, etc.
+cp .env.example .env   # fill in WATTELSE_CLIENT_TOKEN, OPENAI_API_KEY, etc.
 ```
 
 Required env vars (see `.env.example`): `WATTELSE_BASE_URL`, `WATTELSE_CLIENT_ID`,
-`WATTELSE_CLIENT_SECRET` must match a running WattElse `RAGOrchestrator` deployment and its
+`WATTELSE_CLIENT_TOKEN` must match a running WattElse `RAGOrchestrator` deployment and its
 `client_registry.json`. `OPENAI_API_KEY` is only needed to run `wattelse_agent`.
+
+> Named `WATTELSE_CLIENT_TOKEN` rather than the more generic `WATTELSE_CLIENT_SECRET` so a
+> stray `WATTELSE_CLIENT_SECRET` exported elsewhere in your shell/profile can't silently
+> shadow the value in this project's `.env` (pydantic-settings prefers real env vars over
+> `.env` file values).
 
 ## Run
 

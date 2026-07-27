@@ -18,7 +18,7 @@ class Settings(BaseSettings):
 
     base_url: str = "https://localhost:1978"
     client_id: str = "wattelse"
-    client_secret: str
+    client_token: str
     verify_ssl: bool | str = True
     request_timeout: float = 60.0
 
