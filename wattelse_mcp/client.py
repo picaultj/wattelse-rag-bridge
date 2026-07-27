@@ -112,6 +112,12 @@ class WattElseClient:
                 self._token_expiry = time.monotonic() + expires_in - _TOKEN_REFRESH_LEEWAY_SECONDS
                 return
             except (httpx.RemoteProtocolError, httpx.ConnectError, httpx.WriteError) as e:
+                if "CERTIFICATE_VERIFY_FAILED" in str(e):
+                    logger.error(
+                        f"SSL certificate verification failed: {e}. "
+                        "If you are using a self-signed certificate, set WATTELSE_VERIFY_SSL=false in your .env file."
+                    )
+                    raise
                 if attempt == max_retries - 1:
                     logger.error(f"Authentication failed after {max_retries} attempts: {e}")
                     raise
@@ -140,6 +146,12 @@ class WattElseClient:
                 response = await self._http.request(method, path, headers=headers, **kwargs)
                 break
             except (httpx.RemoteProtocolError, httpx.ConnectError, httpx.WriteError) as e:
+                if "CERTIFICATE_VERIFY_FAILED" in str(e):
+                    logger.error(
+                        f"SSL certificate verification failed: {e}. "
+                        "If you are using a self-signed certificate, set WATTELSE_VERIFY_SSL=false in your .env file."
+                    )
+                    raise
                 if attempt == max_retries - 1:
                     logger.error(f"Request failed after {max_retries} attempts: {method} {path} - {e}")
                     raise
