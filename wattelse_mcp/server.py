@@ -21,6 +21,8 @@ from loguru import logger
 
 from mcp.server.fastmcp import FastMCP
 import mcp.types as types
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 
 from wattelse_mcp.client import WattElseClient
 from wattelse_mcp.config import get_settings
@@ -41,6 +43,14 @@ mcp = FastMCP(
     ),
     port=settings.mcp_port,
 )
+
+
+@mcp.custom_route("/health", methods=["GET"])
+async def _health_check(request: Request) -> JSONResponse:
+    """Plain HTTP liveness check for the container/orchestrator, distinct from the
+    `wattelse_health` MCP tool (which checks the upstream WattElse API instead)."""
+    return JSONResponse({"status": "ok"})
+
 
 _client: WattElseClient | None = None
 
