@@ -5,6 +5,7 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
@@ -25,6 +26,17 @@ class Settings(BaseSettings):
     default_config: str = "default_config"
 
     mcp_port: int = 8000
+
+    @field_validator("verify_ssl", mode="before")
+    @classmethod
+    def _coerce_verify_ssl(cls, v: object) -> object:
+        # `verify_ssl` is bool | str (str = path to a custom CA bundle), but pydantic's union
+        # resolution keeps env-var strings like "false"/"true" as-is instead of coercing them to
+        # bool, which then makes httpx treat "false" as a (non-existent) CA bundle file path.
+        if isinstance(v, str) and v.strip().lower() in {"true", "false", "1", "0", "yes", "no"}:
+            return v.strip().lower() in {"true", "1", "yes"}
+        return v
+
 
 @lru_cache
 def get_settings() -> Settings:
