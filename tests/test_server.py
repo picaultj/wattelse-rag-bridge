@@ -84,3 +84,49 @@ async def test_upload_documents_forwards_existing_files(fake_client, tmp_path: P
 
     assert result == {"message": "uploaded"}
     fake_client.upload_documents.assert_awaited_once_with("default", [present])
+
+
+async def test_upload_documents_auto_creates_session_when_missing(fake_client, tmp_path: Path):
+    fake_client.list_sessions.return_value = []
+    present = tmp_path / "present.pdf"
+    present.write_text("content")
+
+    await server.upload_documents(group_id="new-group", file_paths=[str(present)])
+
+    fake_client.create_session.assert_awaited_once_with("new-group", "default_config")
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda: server.query_rag(group_id="new-group", question="hi"),
+        lambda: server.list_documents(group_id="new-group"),
+        lambda: server.remove_documents(group_id="new-group", filenames=["a.pdf"]),
+        lambda: server.clear_collection(group_id="new-group"),
+        lambda: server.get_llm_model_name(group_id="new-group"),
+    ],
+)
+async def test_tools_auto_create_session_when_missing(fake_client, call):
+    fake_client.list_sessions.return_value = []
+
+    await call()
+
+    fake_client.create_session.assert_awaited_once_with("new-group", "default_config")
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda: server.query_rag(group_id="default", question="hi"),
+        lambda: server.list_documents(group_id="default"),
+        lambda: server.remove_documents(group_id="default", filenames=["a.pdf"]),
+        lambda: server.clear_collection(group_id="default"),
+        lambda: server.get_llm_model_name(group_id="default"),
+    ],
+)
+async def test_tools_reuse_existing_session(fake_client, call):
+    fake_client.list_sessions.return_value = ["default"]
+
+    await call()
+
+    fake_client.create_session.assert_not_awaited()

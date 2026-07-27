@@ -30,9 +30,11 @@ mcp = FastMCP(
     "wattelse-rag",
     instructions=(
         "Tools to manage and query WattElse (RTE's RAG platform) document collections. "
-        "Each collection is scoped by a `group_id`. Call `create_rag_session` once per group_id "
-        "before uploading documents or querying it. For a quick single-collection setup, prefer "
-        "the `ask` tool, which uses a pre-configured default group_id and auto-creates its session."
+        "Each collection is scoped by a `group_id`. Every tool auto-creates a session (with the "
+        "default config) for its `group_id` on first use, so calling `create_rag_session` "
+        "explicitly is only needed to pick a non-default `config_name`. For a quick "
+        "single-collection setup, prefer the `ask` tool, which uses a pre-configured default "
+        "group_id."
     ),
     port=settings.mcp_port,
 )
@@ -54,6 +56,16 @@ def _get_client() -> WattElseClient:
     return _client
 
 
+async def _ensure_session(group_id: str) -> None:
+    """Auto-create a WattElse RAG session for `group_id` (using the default config) if one
+    doesn't already exist, so tools don't require `create_rag_session` to be called first."""
+    settings = get_settings()
+    client = _get_client()
+    sessions = await client.list_sessions()
+    if group_id not in sessions:
+        await client.create_session(group_id, settings.default_config)
+
+
 @mcp.tool()
 async def wattelse_health() -> dict:
     """Check whether the WattElse RAGOrchestrator API is reachable."""
@@ -65,7 +77,8 @@ async def wattelse_health() -> dict:
 async def create_rag_session(group_id: str, config_name: str | None = None) -> str:
     """
     Create (or reuse, if it already exists) a WattElse RAG session/collection for `group_id`.
-    Must be called once per group before `upload_documents` or `query_rag` can be used for it.
+    Other tools auto-create a session with the default config on first use, so this only needs
+    to be called explicitly when you want a non-default `config_name` for `group_id`.
     `config_name` selects a server-side registered RAG config; defaults to WATTELSE_DEFAULT_CONFIG.
     """
     settings = get_settings()
@@ -83,24 +96,29 @@ async def upload_documents(group_id: str, file_paths: list[str]) -> dict:
     """
     Upload one or more documents into the WattElse collection for `group_id`.
     `file_paths` must be local filesystem paths readable by this MCP server process.
-    A session for `group_id` must already exist (see `create_rag_session`).
+    Auto-creates a session for `group_id` (with the default config) if one doesn't exist yet.
     """
     paths = [Path(p) for p in file_paths]
     missing = [str(p) for p in paths if not p.is_file()]
     if missing:
         raise ValueError(f"File(s) not found on the MCP server's filesystem: {missing}")
+    await _ensure_session(group_id)
     return await _get_client().upload_documents(group_id, paths)
 
 
 @mcp.tool()
 async def list_documents(group_id: str) -> list[str]:
-    """List the documents currently indexed in the WattElse collection for `group_id`."""
+    """List the documents currently indexed in the WattElse collection for `group_id`.
+    Auto-creates a session for `group_id` (with the default config) if one doesn't exist yet."""
+    await _ensure_session(group_id)
     return await _get_client().list_documents(group_id)
 
 
 @mcp.tool()
 async def remove_documents(group_id: str, filenames: list[str]) -> dict:
-    """Remove the given documents (and their embeddings) from the `group_id` collection."""
+    """Remove the given documents (and their embeddings) from the `group_id` collection.
+    Auto-creates a session for `group_id` (with the default config) if one doesn't exist yet."""
+    await _ensure_session(group_id)
     return await _get_client().remove_documents(group_id, filenames)
 
 
@@ -109,13 +127,17 @@ async def clear_collection(group_id: str) -> dict:
     """
     Permanently delete ALL documents and embeddings for `group_id`, and close its session.
     Destructive and irreversible: only call this when the user explicitly asks to wipe a collection.
+    Auto-creates a session for `group_id` (with the default config) if one doesn't exist yet.
     """
+    await _ensure_session(group_id)
     return await _get_client().clear_collection(group_id)
 
 
 @mcp.tool()
 async def get_llm_model_name(group_id: str) -> str:
-    """Return the name of the LLM WattElse uses to generate answers for `group_id`."""
+    """Return the name of the LLM WattElse uses to generate answers for `group_id`.
+    Auto-creates a session for `group_id` (with the default config) if one doesn't exist yet."""
+    await _ensure_session(group_id)
     return await _get_client().get_llm_model_name(group_id)
 
 
@@ -130,10 +152,11 @@ async def query_rag(
     """
     Ask a question against the WattElse document collection for `group_id`.
     Returns {"answer": str, "relevant_extracts": [{"content": str, "metadata": dict}, ...]}.
-    A session for `group_id` must already exist (see `create_rag_session`).
+    Auto-creates a session for `group_id` (with the default config) if one doesn't exist yet.
     `history` is a list of {"role": "user"|"assistant", "content": str} turns, oldest first.
     `selected_files` restricts retrieval to a subset of the collection's documents.
     """
+    await _ensure_session(group_id)
     return await _get_client().query(
         group_id,
         question,
@@ -151,11 +174,8 @@ async def ask(question: str, group_system_prompt: str | None = None) -> dict:
     Returns the same shape as `query_rag`.
     """
     settings = get_settings()
-    client = _get_client()
-    sessions = await client.list_sessions()
-    if settings.default_group_id not in sessions:
-        await client.create_session(settings.default_group_id, settings.default_config)
-    return await client.query(
+    await _ensure_session(settings.default_group_id)
+    return await _get_client().query(
         settings.default_group_id, question, group_system_prompt=group_system_prompt
     )
 

@@ -22,7 +22,7 @@ Reverse-engineered from
 OAuth2 client-credentials login (`POST /token` with `client_id`/`client_secret` as
 `username`/`password`, Bearer token cached until `expires_in`), then per-`group_id` session and
 document-collection endpoints (`/create-session`, `/upload-docs`, `/query-rag`, ...).
-`wattelse_mcp/client.py` reimplements this contract directly over `httpx` rather than depending on
+`wattelse_mcp/client.py` reimplements this contract directly over `httpx` rather than depending on  
 the `wattelse` package (which pulls in the full ML/embedding stack) — see the docstrings in that
 file for the endpoint-by-endpoint mapping.
 
