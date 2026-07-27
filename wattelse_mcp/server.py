@@ -13,6 +13,7 @@ Or inspect it interactively:
 
 from __future__ import annotations
 
+import functools
 from pathlib import Path
 
 import sys
@@ -58,6 +59,21 @@ def _get_client() -> WattElseClient:
     return _client
 
 
+def _log_tool_errors(func):
+    """Log (and re-raise) any exception a tool raises, so failures show up in the server's
+    logs even though FastMCP reports them back to the MCP client, not to stderr."""
+
+    @functools.wraps(func)
+    async def wrapper(*args, **kwargs):
+        try:
+            return await func(*args, **kwargs)
+        except Exception as e:
+            logger.error(f"Tool call failed: {func.__name__}({kwargs}) -> {type(e).__name__}: {e}")
+            raise
+
+    return wrapper
+
+
 def _resolve_group_id(group_id: str | None) -> str:
     """Resolve an optional `group_id` tool argument to a concrete id, falling back to the
     server-side configured default (WATTELSE_DEFAULT_GROUP_ID) when the caller omits it."""
@@ -75,6 +91,7 @@ async def _ensure_session(group_id: str) -> None:
 
 
 @mcp.tool()
+@_log_tool_errors
 async def wattelse_health() -> dict:
     """Check whether the WattElse RAGOrchestrator API is reachable."""
     logger.info("Tool call: wattelse_health()")
@@ -83,6 +100,7 @@ async def wattelse_health() -> dict:
 
 
 @mcp.tool()
+@_log_tool_errors
 async def create_rag_session(group_id: str | None = None, config_name: str | None = None) -> str:
     """
     Create (or reuse, if it already exists) a WattElse RAG session/collection for `group_id`.
@@ -98,6 +116,7 @@ async def create_rag_session(group_id: str | None = None, config_name: str | Non
 
 
 @mcp.tool()
+@_log_tool_errors
 async def list_rag_sessions() -> list[str]:
     """List the group_ids that currently have an active WattElse RAG session."""
     logger.info("Tool call: list_rag_sessions()")
@@ -105,6 +124,7 @@ async def list_rag_sessions() -> list[str]:
 
 
 @mcp.tool()
+@_log_tool_errors
 async def upload_documents(file_paths: list[str], group_id: str | None = None) -> dict:
     """
     Upload one or more documents into a WattElse collection.
@@ -123,6 +143,7 @@ async def upload_documents(file_paths: list[str], group_id: str | None = None) -
 
 
 @mcp.tool()
+@_log_tool_errors
 async def list_documents(group_id: str | None = None) -> list[str]:
     """List the documents currently indexed in a WattElse collection.
     `group_id` is optional; omit it to target the single default collection.
@@ -134,6 +155,7 @@ async def list_documents(group_id: str | None = None) -> list[str]:
 
 
 @mcp.tool()
+@_log_tool_errors
 async def remove_documents(filenames: list[str], group_id: str | None = None) -> dict:
     """Remove the given documents (and their embeddings) from a WattElse collection.
     `group_id` is optional; omit it to target the single default collection.
@@ -145,6 +167,7 @@ async def remove_documents(filenames: list[str], group_id: str | None = None) ->
 
 
 @mcp.tool()
+@_log_tool_errors
 async def clear_collection(group_id: str | None = None) -> dict:
     """
     Permanently delete ALL documents and embeddings for a WattElse collection, and close its
@@ -159,6 +182,7 @@ async def clear_collection(group_id: str | None = None) -> dict:
 
 
 @mcp.tool()
+@_log_tool_errors
 async def get_llm_model_name(group_id: str | None = None) -> str:
     """Return the name of the LLM WattElse uses to generate answers.
     `group_id` is optional; omit it to target the single default collection.
@@ -170,6 +194,7 @@ async def get_llm_model_name(group_id: str | None = None) -> str:
 
 
 @mcp.tool()
+@_log_tool_errors
 async def query_rag(
     question: str,
     group_id: str | None = None,
@@ -199,6 +224,7 @@ async def query_rag(
 
 
 @mcp.tool()
+@_log_tool_errors
 async def ask(question: str, group_system_prompt: str | None = None) -> dict:
     """
     Convenience tool for the common single-collection case: ask a question against the single
