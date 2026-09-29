@@ -6,7 +6,7 @@ This repository has two layers, kept deliberately separate:
 
 - **`wattelse_mcp`** — an MCP server that owns all WattElse-specific integration logic (OAuth2
   client-credentials auth, session/document/query endpoints, response parsing). It exposes that
-  logic as MCP tools over stdio, using the official `mcp` package's `FastMCP`.
+  logic as MCP tools over stdio, using the official `mcp` package's (v2) `MCPServer`.
 - **`wattelse_agent`** — an [OpenAI Agents SDK](https://github.com/openai/openai-agents-python)
   agent that mounts `wattelse_mcp` as its only tool source, via `MCPServerStdio`. It never talks to
   WattElse's HTTP API directly.
@@ -25,7 +25,7 @@ flowchart LR
     end
 
     subgraph bridge["wattelse_mcp"]
-        server["server.py\nFastMCP tools"]
+        server["server.py\nMCPServer tools"]
         client["client.py\nWattElseClient (httpx)"]
         config["config.py\nSettings (env / .env)"]
     end
@@ -52,7 +52,7 @@ flowchart LR
 |---|---|
 | `wattelse_mcp/config.py` | `pydantic-settings` `Settings`, read from `WATTELSE_*` env vars / `.env` |
 | `wattelse_mcp/client.py` | `WattElseClient`: async `httpx` wrapper around the WattElse `RAGOrchestrator` API — token caching, one method per endpoint, response (de)serialization |
-| `wattelse_mcp/server.py` | `FastMCP` instance; one `@mcp.tool()` per `WattElseClient` method, plus the `ask` convenience tool |
+| `wattelse_mcp/server.py` | `MCPServer` instance; one `@mcp.tool()` per `WattElseClient` method, plus the `ask` convenience tool |
 | `wattelse_agent/agent.py` | Builds an `Agent` + `MCPServerStdio` pointing at `python -m wattelse_mcp.server` |
 | `wattelse_agent/cli.py` | Interactive REPL driving that agent with `Runner` |
 
@@ -65,7 +65,7 @@ flowchart LR
 sequenceDiagram
     participant U as User
     participant A as wattelse_agent (Agent)
-    participant M as wattelse_mcp.server (FastMCP)
+    participant M as wattelse_mcp.server (MCPServer)
     participant C as WattElseClient
     participant W as WattElse RAGOrchestrator API
 

@@ -1,5 +1,5 @@
 """
-Builds an OpenAI Agents SDK `Agent` whose tools come entirely from the `wattelse_mcp` FastMCP
+Builds an OpenAI Agents SDK `Agent` whose tools come entirely from the `wattelse_mcp` MCPServer
 server, launched as a stdio subprocess via `MCPServerStdio`. The agent process never talks to
 WattElse directly -- it only ever calls MCP tools, which is what keeps the WattElse-specific
 HTTP/auth logic isolated in `wattelse_mcp` and reusable by any other MCP host (Claude Desktop,

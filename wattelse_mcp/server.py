@@ -1,6 +1,6 @@
 """
 MCP server exposing the WattElse RAGOrchestrator API as tools, built with the official
-`mcp` Python SDK's FastMCP (`mcp.server.fastmcp.FastMCP`).
+`mcp` Python SDK's MCPServer (`mcp.server.mcpserver.MCPServer`).
 
 Run standalone (stdio transport, the default MCP transport for local/desktop clients):
 
@@ -19,17 +19,14 @@ from pathlib import Path
 import sys
 from loguru import logger
 
-from mcp.server.fastmcp import FastMCP
-import mcp.types as types
+from mcp.server.mcpserver import MCPServer
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 from wattelse_mcp.client import WattElseClient
 from wattelse_mcp.config import get_settings
 
-settings = get_settings()
-
-mcp = FastMCP(
+mcp = MCPServer(
     "wattelse-rag",
     instructions=(
         "Tools to manage and query WattElse (RTE's RAG platform) document collections. "
@@ -41,7 +38,6 @@ mcp = FastMCP(
         "`group_id` value (e.g. from an env var name) -- call `list_rag_sessions` to see the "
         "real, currently active group_ids, or simply omit `group_id` for the default collection."
     ),
-    port=settings.mcp_port,
 )
 
 
@@ -71,7 +67,7 @@ def _get_client() -> WattElseClient:
 
 def _log_tool_errors(func):
     """Log (and re-raise) any exception a tool raises, so failures show up in the server's
-    logs even though FastMCP reports them back to the MCP client, not to stderr."""
+    logs even though MCPServer reports them back to the MCP client, not to stderr."""
 
     @functools.wraps(func)
     async def wrapper(*args, **kwargs):
@@ -254,46 +250,23 @@ def main() -> None:
     logger.remove()
     logger.add(sys.stderr, level="INFO")
 
-    # Patch JSONRPCMessage.model_validate_json to handle empty lines gracefully.
-    # The MCP SDK's stdio transport reads line by line and passes them to this method.
-    # Empty lines (e.g. \n) trigger a Pydantic validation error if not handled.
-    original_validate = types.JSONRPCMessage.model_validate_json
-
-    def patched_validate(cls, json_data, *args, **kwargs):
-        if isinstance(json_data, (str, bytes)) and not json_data.strip():
-            # Return a dummy notification that will be ignored by the server.
-            # 'notifications/initialized' is a valid method that's safe to send twice
-            # (though here it's being "received" by the server from the client).
-            return types.JSONRPCMessage(
-                root=types.JSONRPCNotification(
-                    jsonrpc="2.0",
-                    method="notifications/initialized",
-                )
-            )
-        return original_validate(json_data, *args, **kwargs)
-
-    types.JSONRPCMessage.model_validate_json = classmethod(patched_validate)
-
-    # When running as SSE or streamable-http, display the full URL.
-    # We detect transport if it's the first argument or if MCP_TRANSPORT env var is set (FastMCP convention).
     transport = "streamable-http"
     if len(sys.argv) > 1 and sys.argv[1] in ["stdio", "sse", "streamable-http"]:
         transport = sys.argv[1]
 
+    # mcp 2 takes host/port as `run()` arguments rather than server constructor settings.
+    # When running as SSE or streamable-http, also display the full URL.
+    run_kwargs = {}
     if transport in ["sse", "streamable-http"]:
-        host = mcp.settings.host
-        port = mcp.settings.port
-        if transport == "sse":
-            path = mcp.settings.sse_path
-        else:
-            path = mcp.settings.streamable_http_path
-        
-        # Default mount path is /
-        logger.info(f"URL: http://{host}:{port}{path}")
+        settings = get_settings()
+        run_kwargs = {"host": settings.mcp_host, "port": settings.mcp_port}
+        # These are MCPServer's default paths; mcp 2 no longer exposes them on `mcp.settings`.
+        path = "/sse" if transport == "sse" else "/mcp"
+        logger.info(f"URL: http://{settings.mcp_host}:{settings.mcp_port}{path}")
 
     logger.info(f"Starting WattElse MCP server on {transport}...")
     try:
-        mcp.run(transport=transport)
+        mcp.run(transport=transport, **run_kwargs)
     except KeyboardInterrupt:
         pass
 
