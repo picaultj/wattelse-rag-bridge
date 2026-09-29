@@ -36,7 +36,7 @@ def build_mcp_server() -> MCPServerStdio:
     """Launch `wattelse_mcp.server` as a stdio MCP server subprocess."""
     return MCPServerStdio(
         name="wattelse",
-        params={"command": sys.executable, "args": ["-m", "wattelse_mcp.server"]},
+        params={"command": sys.executable, "args": ["-m", "wattelse_mcp.server", "stdio"]},
         client_session_timeout_seconds=60,
     )
 
