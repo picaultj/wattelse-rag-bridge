@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     default_group_id: str = "default"
     default_config: str = "default_config"
 
+    mcp_host: str = "127.0.0.1"
     mcp_port: int = 8000
 
     @field_validator("verify_ssl", mode="before")

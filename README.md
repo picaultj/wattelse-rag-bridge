@@ -5,8 +5,8 @@ via the [Model Context Protocol](https://modelcontextprotocol.io).
 
 Two pieces:
 
-- **`wattelse_mcp/`** — an MCP server, built with the official `mcp` Python SDK's `FastMCP`
-  (`mcp.server.fastmcp.FastMCP`), that wraps WattElse's `RAGOrchestrator` HTTP API as MCP tools.
+- **`wattelse_mcp/`** — an MCP server, built with the official `mcp` Python SDK (v2)'s `MCPServer`
+  (`mcp.server.mcpserver.MCPServer`), that wraps WattElse's `RAGOrchestrator` HTTP API as MCP tools.
 - **`wattelse_agent/`** — an [OpenAI Agents SDK](https://github.com/openai/openai-agents-python)
   agent that talks to that MCP server over stdio and answers questions using it.
 
@@ -59,7 +59,8 @@ Required env vars (see `.env.example`): `WATTELSE_BASE_URL`, `WATTELSE_CLIENT_ID
 ## Run
 
 Standalone MCP server (e.g. to wire into Claude Desktop/Code, or `mcp dev` for the inspector):
-The port can be configured via `WATTELSE_MCP_PORT` (defaults to 8000).
+The host and port can be configured via `WATTELSE_MCP_HOST` (defaults to `127.0.0.1`) and
+`WATTELSE_MCP_PORT` (defaults to 8000).
 
 ```bash
 # default (streamable-http)
